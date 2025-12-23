@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Torrent.lt Image Preview",
+  "version": "1.0",
+  "description": "Shows poster previews directly in the torrent list.",
+  "content_scripts": [
+    {
+      "matches": ["https://torrent.lt/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"]
+    }
+  ]
+}
