@@ -234,6 +234,7 @@ function injectImage(container, url) {
   const img = document.createElement('img');
   img.src = url;
   img.style.height = '300px';
+  img.style.maxWidth = '300px';
   img.style.display = 'block';
   img.style.marginTop = '10px';
   img.classList.add('preview-image');

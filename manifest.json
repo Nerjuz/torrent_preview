@@ -23,7 +23,7 @@
     {
       "matches": [
         "https://torrent.lt/*",
-        "https://www.linkomanija.net/*"
+        "https://www.linkomanija.net/browse.php*"
       ],
       "js": [
         "content.js"
