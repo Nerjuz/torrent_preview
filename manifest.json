@@ -1,13 +1,36 @@
 {
   "manifest_version": 3,
-  "name": "Torrent.lt Image Preview",
+  "name": "Torrent posters preview",
   "version": "1.0",
-  "description": "Shows poster previews directly in the torrent list.",
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "permissions": [
+    "storage"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Settings",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
   "content_scripts": [
     {
-      "matches": ["https://torrent.lt/*"],
-      "js": ["content.js"],
-      "css": ["styles.css"]
+      "matches": [
+        "https://torrent.lt/*",
+        "https://www.linkomanija.net/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "styles.css"
+      ]
     }
   ]
 }
