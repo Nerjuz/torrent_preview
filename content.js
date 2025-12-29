@@ -1,34 +1,27 @@
 const processedElements = new WeakSet();
 
-// Cache settings
-let isEnabled = true;
+// Settings
+let isTorrentLtEnabled = true;
+let isLinkomanijaEnabled = true;
 
 // Initialize
-chrome.storage.local.get(['enablePreviews'], (result) => {
-  if (result.enablePreviews !== undefined) {
-    isEnabled = result.enablePreviews;
-  }
+chrome.storage.local.get(['enableTorrentLt', 'enableLinkomanija'], (result) => {
+  if (result.enableTorrentLt !== undefined) isTorrentLtEnabled = result.enableTorrentLt;
+  if (result.enableLinkomanija !== undefined) isLinkomanijaEnabled = result.enableLinkomanija;
 
-  // Only start observing if enabled
-  if (isEnabled) {
-    startObserver();
-  } else {
-    console.log('Torrent Previews disabled by user settings.');
-  }
+  checkAndRun();
 });
 
-// Listen for changes in real-time
+// Listen for changes
 chrome.storage.onChanged.addListener((changes, namespace) => {
-  if (namespace === 'local' && changes.enablePreviews) {
-    isEnabled = changes.enablePreviews.newValue;
-    if (isEnabled) {
-      console.log('Previews enabled. Starting...');
-      startObserver();
-      showPreviews();
-    } else {
-      console.log('Previews disabled. Stopping...');
-      stopObserver();
-      removePreviews();
+  if (namespace === 'local') {
+    if (changes.enableTorrentLt) {
+      isTorrentLtEnabled = changes.enableTorrentLt.newValue;
+      checkAndRun();
+    }
+    if (changes.enableLinkomanija) {
+      isLinkomanijaEnabled = changes.enableLinkomanija.newValue;
+      checkAndRun();
     }
   }
 });
@@ -36,8 +29,28 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
 let observer;
 let observerTimeout;
 
+function checkAndRun() {
+  const hostname = window.location.hostname;
+  let shouldRun = false;
+
+  if (hostname.includes('torrent.lt')) {
+    shouldRun = isTorrentLtEnabled;
+  } else if (hostname.includes('linkomanija.net')) {
+    shouldRun = isLinkomanijaEnabled;
+  }
+
+  if (shouldRun) {
+    if (!observer) startObserver();
+    showPreviews();
+    toggleGalleryView(true);
+  } else {
+    stopObserver();
+    removePreviews(); // Optional: remove injected images if we want "pure" state
+    toggleGalleryView(false); // Hide gallery, show original table
+  }
+}
+
 function startObserver() {
-  // If already running, do nothing
   if (observer) return;
 
   if (document.readyState === 'loading') {
@@ -67,34 +80,14 @@ function stopObserver() {
 function removePreviews() {
   const images = document.querySelectorAll('.preview-image');
   images.forEach(img => img.remove());
-  // Note: We don't clear processedElements because we want them to be re-processed if re-enabled? 
-  // Actually processedElements prevents re-adding. If we remove images, we should probably clear processedElements 
-  // or just let the check `if (row.querySelector('.preview-image'))` fail and re-add.
-  // The WeakSet `processedElements` is mostly for race conditions during fetch.
-  // If we remove the images, the `querySelector('.preview-image')` check in `showPreviews` will return false,
-  // so it might try to fetch again.
-  // However, `processedElements` will still have the row.
-  // So if we disable and re-enable without reload, we might need to clear `processedElements` or use a different mechanism.
-  // But since `processedElements` is a WeakSet, we can't clear it. We have to create a new one.
-  // But `processedElements` is const. Let's make it let or just not worry about it for now (re-enabling without reload might suffer).
-  // Let's assume user reloads or we can just ignore efficiency for the rare toggle case.
-
-  // To support re-enabling properly without reload, we should ideally not use WeakSet for "done" state if "done" state means "has image".
-  // "done" state really just means "we are working on this or finished this".
-  // If we remove image, we are "unfinished".
-  // So let's just make processedElements a new WeakSet when disabling? We can't re-assign const.
-  // Let's rely on reload for full reset, but removing images gives immediate visual feedback.
 }
 
 function showPreviews() {
-  if (!isEnabled) return;
-
   const hostname = window.location.hostname;
-
   if (hostname.includes('torrent.lt')) {
-    handleTorrentLt();
+    if (isTorrentLtEnabled) handleTorrentLt();
   } else if (hostname.includes('linkomanija.net')) {
-    handleLinkomanija();
+    if (isLinkomanijaEnabled) handleLinkomanija();
   }
 }
 
@@ -102,7 +95,6 @@ function handleTorrentLt() {
   const cells = document.querySelectorAll('.torrent-name_cell');
 
   cells.forEach(cell => {
-    // Check if image exists usage to skip
     if (cell.querySelector('.preview-image')) return;
     if (processedElements.has(cell)) return;
 
@@ -112,7 +104,28 @@ function handleTorrentLt() {
       processedElements.add(cell);
       const imageUrl = link.getAttribute('data-poster-preview');
       if (imageUrl) {
-        injectImage(cell, imageUrl);
+        // Extract metadata is now mostly done in gallery extraction, but we still inject images for backup list view?
+        // User wants gallery view mostly. 
+        // But we inject images into the cell just in case, or maybe to help extraction?
+        // extractTorrentLtData uses data-poster-preview attribute which is already there.
+        // But let's inject anyway for older behavior compatibility or if gallery fails.
+        // Wait, injectImage adds .preview-wrapper.
+        // Original logic injected images into the table structure.
+        // We'll keep it for robustness.
+
+        const row = cell.parentElement;
+        let size = '';
+        let seeds = '';
+        let leeches = '';
+
+        // Basic fallback extraction for list view injection
+        if (row.cells.length >= 7) {
+          size = row.cells[3].textContent.trim();
+          seeds = row.cells[4].textContent.trim();
+          leeches = row.cells[5].textContent.trim();
+        }
+
+        injectImage(cell, imageUrl, size, seeds, leeches);
       }
     }
   });
@@ -126,8 +139,6 @@ async function handleLinkomanija() {
 
   for (const row of rows) {
     if (row.querySelector('.preview-image')) continue;
-    // If we checked processedElements here, we couldn't re-add after disable->enable toggle if we don't clear it.
-    // But race condition protection is important.
     if (processedElements.has(row)) continue;
 
     const columns = row.querySelectorAll('td');
@@ -140,10 +151,9 @@ async function handleLinkomanija() {
       const detailsUrl = link.href;
 
       try {
-        // CHECK CACHE FIRST
         const cached = await getCache(detailsUrl);
         if (cached) {
-          injectImage(link, cached);
+          injectImage(link, cached, '', '', '');
           continue;
         }
 
@@ -153,13 +163,27 @@ async function handleLinkomanija() {
           imageUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZWVlIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyMCIgZmlsbD0iI2FhYSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Tm8gUG9zdGVyPC90ZXh0Pjwvc3ZnPg==';
         }
 
-        // SAVE TO CACHE
         await setCache(detailsUrl, imageUrl);
 
-        injectImage(link, imageUrl);
+        let size = '';
+        let seeds = '';
+        let leeches = '';
+
+        if (row.cells.length >= 8) {
+          if (/[\d\.]+\s*[KMGT]B/i.test(row.cells[5].textContent)) {
+            size = row.cells[5].textContent.trim();
+            seeds = row.cells[6].textContent.trim();
+            leeches = row.cells[7].textContent.trim();
+          } else if (/[\d\.]+\s*[KMGT]B/i.test(row.cells[4].textContent)) {
+            size = row.cells[4].textContent.trim();
+            seeds = row.cells[5].textContent.trim();
+            leeches = row.cells[6].textContent.trim();
+          }
+        }
+
+        injectImage(link, imageUrl, size, seeds, leeches);
       } catch (err) {
         console.error('Failed to fetch/parse poster for', detailsUrl, err);
-        // Remove from processed elements so we retry? Or just leave it failed.
       }
     }
   }
@@ -206,13 +230,7 @@ async function fetchPosterFromDetails(url) {
       if (!src) continue;
 
       const lowerSrc = src.toLowerCase();
-      if (lowerSrc.includes('cat_') ||
-        lowerSrc.includes('arrow') ||
-        lowerSrc.includes('button') ||
-        lowerSrc.includes('stars') ||
-        lowerSrc.includes('rss') ||
-        lowerSrc.includes('facebook') ||
-        lowerSrc.includes('twitter')) continue;
+      if (lowerSrc.includes('cat_') || lowerSrc.includes('arrow') || lowerSrc.includes('button') || lowerSrc.includes('stars') || lowerSrc.includes('rss') || lowerSrc.includes('facebook') || lowerSrc.includes('twitter')) continue;
 
       const w = parseInt(img.getAttribute('width')) || 0;
       const h = parseInt(img.getAttribute('height')) || 0;
@@ -228,16 +246,279 @@ async function fetchPosterFromDetails(url) {
   }
 }
 
-function injectImage(container, url) {
+function injectImage(container, url, size, seeds, leeches) {
   if (container.querySelector('.preview-image')) return;
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'preview-wrapper';
+  wrapper.style.position = 'relative';
 
   const img = document.createElement('img');
   img.src = url;
-  img.style.height = '300px';
-  img.style.maxWidth = '300px';
-  img.style.display = 'block';
-  img.style.marginTop = '10px';
   img.classList.add('preview-image');
 
-  container.appendChild(img);
+  wrapper.appendChild(img);
+
+  if (size) {
+    const sizeBadge = document.createElement('div');
+    sizeBadge.className = 'meta-badge meta-size';
+    sizeBadge.textContent = size;
+    wrapper.appendChild(sizeBadge);
+  }
+
+  if (seeds !== '' && leeches !== '') {
+    const peersBadge = document.createElement('div');
+    peersBadge.className = 'meta-badge meta-peers';
+    const sSpan = document.createElement('span');
+    sSpan.className = 'seeds-count';
+    sSpan.textContent = seeds;
+
+    const lSpan = document.createElement('span');
+    lSpan.className = 'leeches-count';
+    lSpan.textContent = leeches;
+
+    peersBadge.appendChild(sSpan);
+    peersBadge.appendChild(document.createTextNode(' / '));
+    peersBadge.appendChild(lSpan);
+
+    wrapper.appendChild(peersBadge);
+  }
+
+  container.appendChild(wrapper);
+
+  // If active, update gallery
+  if (document.body.classList.contains('gallery-view-active')) {
+    let href = '';
+    if (container.tagName === 'A') {
+      href = container.href;
+    } else {
+      const l = container.querySelector('a');
+      if (l) href = l.href;
+    }
+
+    if (href) {
+      const galleryContainer = document.getElementById('gallery-view-container');
+      if (galleryContainer) {
+        let card = galleryContainer.querySelector(`.gallery-card a[href="${href}"]`);
+        if (card) {
+          const cardImg = card.closest('.gallery-card').querySelector('.card-image');
+          if (cardImg) cardImg.src = url;
+          else {
+            const wrapper = card.closest('.gallery-card').querySelector('.card-image-wrapper');
+            wrapper.innerHTML = '';
+            const img = document.createElement('img');
+            img.src = url;
+            img.className = 'card-image';
+            wrapper.appendChild(img);
+          }
+        } else {
+          debounceRefreshGallery();
+        }
+      }
+    }
+  }
+}
+
+let refreshTimeout;
+function debounceRefreshGallery() {
+  if (refreshTimeout) clearTimeout(refreshTimeout);
+  refreshTimeout = setTimeout(() => {
+    const c = document.getElementById('gallery-view-container');
+    if (c) generateGalleryCards(c);
+  }, 500);
+}
+
+function toggleGalleryView(active) {
+  const containerId = 'gallery-view-container';
+  let container = document.getElementById(containerId);
+
+  if (active) {
+    document.body.classList.add('gallery-view-active');
+
+    if (!container) {
+      container = document.createElement('div');
+      container.id = containerId;
+      const mainTable = findMainTable();
+      if (mainTable) {
+        mainTable.parentNode.insertBefore(container, mainTable);
+      } else {
+        document.body.appendChild(container);
+      }
+    }
+
+    generateGalleryCards(container);
+    container.style.display = 'grid';
+
+  } else {
+    document.body.classList.remove('gallery-view-active');
+    if (container) {
+      container.style.display = 'none';
+      container.innerHTML = '';
+    }
+  }
+}
+
+function findMainTable() {
+  const hostname = window.location.hostname;
+  if (hostname.includes('torrent.lt')) {
+    return document.querySelector('.torrents-table');
+  } else if (hostname.includes('linkomanija.net')) {
+    let table = document.querySelector('#content form[action="browse.php"] > table:not(.bottom)');
+    if (!table) {
+      const tables = document.querySelectorAll('#content form[action="browse.php"] > table');
+      if (tables.length > 1) table = tables[tables.length - 1];
+      else if (tables.length === 1) table = tables[0];
+    }
+    return table || document.querySelector('#content table[width="100%"]');
+  }
+  return null;
+}
+
+function generateGalleryCards(container) {
+  container.innerHTML = '';
+
+  const hostname = window.location.hostname;
+  let items = [];
+
+  if (hostname.includes('torrent.lt')) {
+    items = extractTorrentLtData();
+  } else if (hostname.includes('linkomanija.net')) {
+    items = extractLinkomanijaData();
+  }
+
+  items.forEach(item => {
+    const card = createGalleryCard(item);
+    container.appendChild(card);
+  });
+}
+
+function createGalleryCard(item) {
+  const card = document.createElement('div');
+  card.className = 'gallery-card';
+
+  const imgWrapper = document.createElement('a');
+  imgWrapper.className = 'card-image-wrapper';
+  imgWrapper.href = item.link;
+  imgWrapper.style.display = 'block';
+
+  if (item.poster) {
+    const img = document.createElement('img');
+    img.src = item.poster;
+    img.className = 'card-image';
+    imgWrapper.appendChild(img);
+  } else {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'card-no-image';
+    placeholder.textContent = 'No Image';
+    imgWrapper.appendChild(placeholder);
+  }
+
+  if (item.size) {
+    const sizeBadge = document.createElement('div');
+    sizeBadge.className = 'meta-badge meta-size';
+    sizeBadge.textContent = item.size;
+    imgWrapper.appendChild(sizeBadge);
+  }
+
+  if (item.seeds !== '' && item.leeches !== '') {
+    const peersBadge = document.createElement('div');
+    peersBadge.className = 'meta-badge meta-peers';
+    const sSpan = document.createElement('span');
+    sSpan.className = 'seeds-count';
+    sSpan.textContent = item.seeds;
+
+    const lSpan = document.createElement('span');
+    lSpan.className = 'leeches-count';
+    lSpan.textContent = item.leeches;
+
+    peersBadge.appendChild(sSpan);
+    peersBadge.appendChild(document.createTextNode(' / '));
+    peersBadge.appendChild(lSpan);
+    imgWrapper.appendChild(peersBadge);
+  }
+
+  const titleDiv = document.createElement('div');
+  titleDiv.className = 'card-title';
+  const link = document.createElement('a');
+  link.href = item.link;
+  link.textContent = item.title;
+  titleDiv.appendChild(link);
+
+  card.appendChild(imgWrapper);
+  card.appendChild(titleDiv);
+
+  return card;
+}
+
+function extractTorrentLtData() {
+  const data = [];
+  const rows = document.querySelectorAll('.torrents-table__name-row');
+
+  rows.forEach(row => {
+    let link = row.querySelector('a[data-poster-preview]') || row.querySelector('a[href*="details"]');
+    if (!link) return;
+
+    const poster = link.getAttribute('data-poster-preview');
+    const title = link.textContent.trim();
+    const href = link.href;
+
+    const seedsCell = row.querySelector('.seeders_cell');
+    const leechesCell = row.querySelector('.leechers_cell');
+    const seeds = seedsCell ? seedsCell.textContent.trim() : '';
+    const leeches = leechesCell ? leechesCell.textContent.trim() : '';
+
+    let size = '';
+    const infoRow = row.nextElementSibling;
+    if (infoRow && infoRow.classList.contains('torrents-table__info-row')) {
+      const sizeCell = infoRow.querySelector('.size_cell');
+      if (sizeCell) size = sizeCell.textContent.trim();
+    }
+
+    if (poster) {
+      data.push({ title, link: href, poster, size, seeds, leeches });
+    }
+  });
+  return data;
+}
+
+function extractLinkomanijaData() {
+  const data = [];
+  let rows = document.querySelectorAll('#content form[action="browse.php"] > table tr');
+  if (rows.length === 0) {
+    rows = document.querySelectorAll('#content table tr');
+  }
+
+  rows.forEach(row => {
+    const link = row.querySelector('a[href*="details"]');
+    if (!link) return;
+
+    const title = link.textContent.trim();
+    if (!title) return;
+
+    const href = link.href;
+
+    const injectedImg = link.querySelector('img.preview-image') || row.querySelector('img.preview-image');
+    let poster = injectedImg ? injectedImg.src : null;
+
+    let size = '';
+    let seeds = '';
+    let leeches = '';
+
+    if (row.cells.length >= 8) {
+      if (/[\d\.]+\s*[KMGT]B/i.test(row.cells[5].textContent)) {
+        size = row.cells[5].textContent.trim();
+        seeds = row.cells[6].textContent.trim();
+        leeches = row.cells[7].textContent.trim();
+      } else if (/[\d\.]+\s*[KMGT]B/i.test(row.cells[4].textContent)) {
+        size = row.cells[4].textContent.trim();
+        seeds = row.cells[5].textContent.trim();
+        leeches = row.cells[6].textContent.trim();
+      }
+    }
+
+    if (poster) {
+      data.push({ title, link: href, poster, size, seeds, leeches });
+    }
+  });
+  return data;
 }

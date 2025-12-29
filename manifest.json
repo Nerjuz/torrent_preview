@@ -22,7 +22,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://torrent.lt/*",
+        "https://torrent.lt/lt/torrents*",
+        "https://torrent.lt/lt/t*",
         "https://www.linkomanija.net/browse.php*"
       ],
       "js": [

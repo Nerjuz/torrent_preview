@@ -1,7 +1,153 @@
 /* styles.css */
-.torrent-name_cell .preview-image {
+/* Base styles for wrapper (List View) */
+.preview-wrapper {
+  margin-top: 10px;
+  width: 100%;
+}
+
+.torrent-name_cell .preview-image,
+.preview-wrapper .preview-image {
   max-width: 300px;
   object-fit: contain;
   border-radius: 4px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+/* =========================================
+   GALLERY VIEW (Div Based)
+   ========================================= */
+
+/* Table hiding: Targeted to keep filters visible */
+/* Torrent.lt */
+body.gallery-view-active .torrents-table {
+  display: none !important;
+}
+
+/* Linkomanija */
+/* Hide the main list table (inside form, not class 'bottom' which is filter) */
+body.gallery-view-active #content form[action="browse.php"]>table:not(.bottom) {
+  display: none !important;
+}
+
+/* Fallback for other potential list tables if selector above fails/varies */
+body.gallery-view-active #content table[width="100%"]:not(.bottom) {
+  display: none !important;
+}
+
+/* Gallery Container */
+#gallery-view-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+  padding: 20px;
+}
+
+/* Card Styles */
+.gallery-card {
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  overflow: hidden;
+}
+
+.card-image-wrapper {
+  display: block;
+  position: relative;
+  width: 100%;
+  padding-top: 150%;
+  /* Aspect Ratio 2:3 */
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #f0f0f0;
+  /* formatting placeholder */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s;
+}
+
+.card-image-wrapper:hover {
+  transform: scale(1.02);
+}
+
+.card-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-no-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-size: 14px;
+}
+
+/* Title */
+.card-title {
+  display: flex;
+  /* Flex to allow possible future enhancements */
+  margin-top: 8px;
+}
+
+.card-title a {
+  width: 100%;
+  text-align: center;
+  color: #ffffff;
+  /* Dark title for light mode */
+  text-decoration: none;
+  font-family: sans-serif;
+  font-size: 13px;
+  font-weight: bold;
+
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+/* Dark Mode Support if needed (Linkomanija default is light, Torrent.lt is light?) */
+/* If body has dark background, adjust. Assuming defaults. */
+
+/* Meta Badges (Reused/Shared) */
+.meta-badge {
+  position: absolute;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-family: sans-serif;
+  font-size: 11px;
+  font-weight: bold;
+  color: white;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.meta-size {
+  top: 6px;
+  left: 6px;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(2px);
+}
+
+.meta-peers {
+  top: 6px;
+  right: 6px;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(2px);
+}
+
+.seeds-count {
+  color: #4CAF50;
+}
+
+.leeches-count {
+  color: #F44336;
 }
