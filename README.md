@@ -1,6 +1,6 @@
 # Torrent Posters Preview
 
-**Torrent Posters Preview** is a lightweight Chrome extension that enhances your browsing experience on Lithuanian torrent trackers (`torrent.lt` and `linkomanija.net`) by adding visual previews and a modern gallery layout.
+**Torrent Posters Preview** is a lightweight Chrome extension that enhances your browsing experience on Lithuanian torrent trackers (`torrent.lt` / `torrent.ai` and `linkomanija.net`) by adding visual previews and a modern gallery layout.
 
 ## Features
 
@@ -22,7 +22,7 @@ If you prefer the classic list view, the extension can simply insert poster prev
 -   **Toggleable:** Easily switch between **Gallery View** and **List View**, or disable the extension entirely via the popup menu.
 
 ## Supported Sites
--   `torrent.lt`
+-   `torrent.lt` / `torrent.ai`
 -   `linkomanija.net`
 
 ## Installation

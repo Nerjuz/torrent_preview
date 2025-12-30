@@ -33,7 +33,7 @@ function checkAndRun() {
   const hostname = window.location.hostname;
   let shouldRun = false;
 
-  if (hostname.includes('torrent.lt')) {
+  if (hostname.includes('torrent.lt') || hostname.includes('torrent.ai')) {
     shouldRun = isTorrentLtEnabled;
   } else if (hostname.includes('linkomanija.net')) {
     shouldRun = isLinkomanijaEnabled;
@@ -84,7 +84,7 @@ function removePreviews() {
 
 function showPreviews() {
   const hostname = window.location.hostname;
-  if (hostname.includes('torrent.lt')) {
+  if (hostname.includes('torrent.lt') || hostname.includes('torrent.ai')) {
     if (isTorrentLtEnabled) handleTorrentLt();
   } else if (hostname.includes('linkomanija.net')) {
     if (isLinkomanijaEnabled) handleLinkomanija();
@@ -125,7 +125,13 @@ function handleTorrentLt() {
           leeches = row.cells[5].textContent.trim();
         }
 
-        injectImage(cell, imageUrl, size, seeds, leeches);
+        let downloadUrl = '';
+        const downloadLink = row.querySelector('.download-button') || row.querySelector('a[href*="download.php"]');
+        if (downloadLink) {
+          downloadUrl = downloadLink.href;
+        }
+
+        injectImage(cell, imageUrl, size, seeds, leeches, downloadUrl);
       }
     }
   });
@@ -181,7 +187,13 @@ async function handleLinkomanija() {
           }
         }
 
-        injectImage(link, imageUrl, size, seeds, leeches);
+        let downloadUrl = '';
+        const downloadLink = row.querySelector('a[href*="download.php"]');
+        if (downloadLink) {
+          downloadUrl = downloadLink.href;
+        }
+
+        injectImage(link, imageUrl, size, seeds, leeches, downloadUrl);
       } catch (err) {
         console.error('Failed to fetch/parse poster for', detailsUrl, err);
       }
@@ -246,7 +258,7 @@ async function fetchPosterFromDetails(url) {
   }
 }
 
-function injectImage(container, url, size, seeds, leeches) {
+function injectImage(container, url, size, seeds, leeches, downloadUrl) {
   if (container.querySelector('.preview-image')) return;
 
   const wrapper = document.createElement('div');
@@ -263,6 +275,15 @@ function injectImage(container, url, size, seeds, leeches) {
     const sizeBadge = document.createElement('div');
     sizeBadge.className = 'meta-badge meta-size';
     sizeBadge.textContent = size;
+    if (downloadUrl) {
+      sizeBadge.style.cursor = 'pointer';
+      sizeBadge.title = 'Download .torrent';
+      sizeBadge.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.href = downloadUrl;
+      };
+    }
     wrapper.appendChild(sizeBadge);
   }
 
@@ -280,6 +301,16 @@ function injectImage(container, url, size, seeds, leeches) {
     peersBadge.appendChild(sSpan);
     peersBadge.appendChild(document.createTextNode(' / '));
     peersBadge.appendChild(lSpan);
+
+    if (downloadUrl) {
+      peersBadge.style.cursor = 'pointer';
+      peersBadge.title = 'Download .torrent';
+      peersBadge.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.href = downloadUrl;
+      };
+    }
 
     wrapper.appendChild(peersBadge);
   }
@@ -302,6 +333,8 @@ function injectImage(container, url, size, seeds, leeches) {
         let card = galleryContainer.querySelector(`.gallery-card a[href="${href}"]`);
         if (card) {
           const cardImg = card.closest('.gallery-card').querySelector('.card-image');
+          // Update downloadUrl on the existing card badges if needed, but usually we just regenerate if data changes.
+          // For now, assume regeneration or that badges are fine.
           if (cardImg) cardImg.src = url;
           else {
             const wrapper = card.closest('.gallery-card').querySelector('.card-image-wrapper');
@@ -360,7 +393,7 @@ function toggleGalleryView(active) {
 
 function findMainTable() {
   const hostname = window.location.hostname;
-  if (hostname.includes('torrent.lt')) {
+  if (hostname.includes('torrent.lt') || hostname.includes('torrent.ai')) {
     return document.querySelector('.torrents-table');
   } else if (hostname.includes('linkomanija.net')) {
     let table = document.querySelector('#content form[action="browse.php"] > table:not(.bottom)');
@@ -380,7 +413,7 @@ function generateGalleryCards(container) {
   const hostname = window.location.hostname;
   let items = [];
 
-  if (hostname.includes('torrent.lt')) {
+  if (hostname.includes('torrent.lt') || hostname.includes('torrent.ai')) {
     items = extractTorrentLtData();
   } else if (hostname.includes('linkomanija.net')) {
     items = extractLinkomanijaData();
@@ -417,6 +450,17 @@ function createGalleryCard(item) {
     const sizeBadge = document.createElement('div');
     sizeBadge.className = 'meta-badge meta-size';
     sizeBadge.textContent = item.size;
+
+    if (item.downloadUrl) {
+      sizeBadge.style.cursor = 'pointer';
+      sizeBadge.title = 'Download .torrent';
+      sizeBadge.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.href = item.downloadUrl;
+      };
+    }
+
     imgWrapper.appendChild(sizeBadge);
   }
 
@@ -434,6 +478,17 @@ function createGalleryCard(item) {
     peersBadge.appendChild(sSpan);
     peersBadge.appendChild(document.createTextNode(' / '));
     peersBadge.appendChild(lSpan);
+
+    if (item.downloadUrl) {
+      peersBadge.style.cursor = 'pointer';
+      peersBadge.title = 'Download .torrent';
+      peersBadge.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.href = item.downloadUrl;
+      };
+    }
+
     imgWrapper.appendChild(peersBadge);
   }
 
@@ -474,8 +529,14 @@ function extractTorrentLtData() {
       if (sizeCell) size = sizeCell.textContent.trim();
     }
 
+    let downloadUrl = '';
+    const downloadLink = row.querySelector('.download-button') || (infoRow ? infoRow.querySelector('.download-button') : null) || row.querySelector('a[href*="download.php"]') || (infoRow ? infoRow.querySelector('a[href*="download.php"]') : null);
+    if (downloadLink) {
+      downloadUrl = downloadLink.href;
+    }
+
     if (poster) {
-      data.push({ title, link: href, poster, size, seeds, leeches });
+      data.push({ title, link: href, poster, size, seeds, leeches, downloadUrl });
     }
   });
   return data;
@@ -516,8 +577,14 @@ function extractLinkomanijaData() {
       }
     }
 
+    let downloadUrl = '';
+    const downloadLink = row.querySelector('a[href*="download.php"]');
+    if (downloadLink) {
+      downloadUrl = downloadLink.href;
+    }
+
     if (poster) {
-      data.push({ title, link: href, poster, size, seeds, leeches });
+      data.push({ title, link: href, poster, size, seeds, leeches, downloadUrl });
     }
   });
   return data;
