@@ -33,7 +33,7 @@ function checkAndRun() {
   const hostname = window.location.hostname;
   let shouldRun = false;
 
-  if (hostname.includes('torrent.lt') || hostname.includes('torrent.ai')) {
+  if (hostname.includes('torrent.lt') || hostname.includes('torrent.ai') || hostname.includes('88.80.28.26')) {
     shouldRun = isTorrentLtEnabled;
   } else if (hostname.includes('linkomanija.net')) {
     shouldRun = isLinkomanijaEnabled;
@@ -84,7 +84,7 @@ function removePreviews() {
 
 function showPreviews() {
   const hostname = window.location.hostname;
-  if (hostname.includes('torrent.lt') || hostname.includes('torrent.ai')) {
+  if (hostname.includes('torrent.lt') || hostname.includes('torrent.ai') || hostname.includes('88.80.28.26')) {
     if (isTorrentLtEnabled) handleTorrentLt();
   } else if (hostname.includes('linkomanija.net')) {
     if (isLinkomanijaEnabled) handleLinkomanija();
@@ -393,7 +393,7 @@ function toggleGalleryView(active) {
 
 function findMainTable() {
   const hostname = window.location.hostname;
-  if (hostname.includes('torrent.lt') || hostname.includes('torrent.ai')) {
+  if (hostname.includes('torrent.lt') || hostname.includes('torrent.ai') || hostname.includes('88.80.28.26')) {
     return document.querySelector('.torrents-table');
   } else if (hostname.includes('linkomanija.net')) {
     let table = document.querySelector('#content form[action="browse.php"] > table:not(.bottom)');
@@ -413,7 +413,7 @@ function generateGalleryCards(container) {
   const hostname = window.location.hostname;
   let items = [];
 
-  if (hostname.includes('torrent.lt') || hostname.includes('torrent.ai')) {
+  if (hostname.includes('torrent.lt') || hostname.includes('torrent.ai') || hostname.includes('88.80.28.26')) {
     items = extractTorrentLtData();
   } else if (hostname.includes('linkomanija.net')) {
     items = extractLinkomanijaData();

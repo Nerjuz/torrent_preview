@@ -24,6 +24,7 @@
       "matches": [
         "https://torrent.ai/lt/t*",
         "https://torrent.lt/lt/t*",
+        "http://88.80.28.26/lt/t*",
         "https://www.linkomanija.net/browse.php*"
       ],
       "js": [
