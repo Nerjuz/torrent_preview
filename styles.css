@@ -118,9 +118,6 @@ body.gallery-view-active #content table[width="100%"]:not(.bottom) {
   color: #ffffff;
 }
 
-/* Dark Mode Support if needed (Linkomanija default is light, Torrent.lt is light?) */
-/* If body has dark background, adjust. Assuming defaults. */
-
 /* Meta Badges (Reused/Shared) */
 .meta-badge {
   position: absolute;
